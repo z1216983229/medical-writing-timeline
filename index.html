@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Medical Writing Timeline</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div>
+            <h1>Timeline</h1>
+            <p>Medical Writing</p>
+          </div>
+          <button id="newProjectBtn" class="primary">新建</button>
+        </div>
+        <input id="projectSearch" class="search" type="search" placeholder="搜索项目">
+        <div id="projectList" class="project-list"></div>
+        <div class="sidebar-actions">
+          <button id="exportLibraryBtn">导出项目库</button>
+          <label class="file-button">
+            导入项目库
+            <input id="importLibraryInput" type="file" accept="application/json,.json">
+          </label>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div class="field compact grow">
+            <label for="projectName">项目名称</label>
+            <input id="projectName" type="text">
+          </div>
+          <div class="field compact">
+            <label for="templateSelect">模板</label>
+            <select id="templateSelect"></select>
+          </div>
+        </header>
+
+        <div class="toolbar">
+          <button id="saveProjectBtn">保存</button>
+          <button id="exportExcelBtn">导出Excel</button>
+          <button id="updateHolidaysBtn">更新节假日</button>
+          <button id="deleteProjectBtn" class="danger">删除项目</button>
+          <span id="statusLine" class="status-line"></span>
+        </div>
+
+        <section class="table-wrap">
+          <table class="timeline-table">
+            <colgroup>
+              <col style="width: 60px">
+              <col style="width: 200px">
+              <col style="width: 260px">
+              <col style="width: 210px">
+              <col style="width: 130px">
+              <col style="width: 150px">
+              <col style="width: 150px">
+              <col style="width: 260px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>序号<span class="col-resizer"></span></th>
+                <th>任务范围<span class="col-resizer"></span></th>
+                <th>任务名称<span class="col-resizer"></span></th>
+                <th>任务负责人<span class="col-resizer"></span></th>
+                <th>Duration 工作日<span class="col-resizer"></span></th>
+                <th>计划开始日期<span class="col-resizer"></span></th>
+                <th>计划结束日期<span class="col-resizer"></span></th>
+                <th>备注<span class="col-resizer"></span></th>
+              </tr>
+            </thead>
+            <tbody id="timelineBody"></tbody>
+          </table>
+        </section>
+      </section>
+    </main>
+    <div id="rowMenu" class="row-menu" hidden>
+      <button data-menu-action="insert-above">上方新增一行</button>
+      <button data-menu-action="insert-below">下方新增一行</button>
+      <button data-menu-action="copy">复制本行</button>
+      <button data-menu-action="up">上移</button>
+      <button data-menu-action="down">下移</button>
+      <button data-menu-action="clear-cell">清除单元格信息</button>
+      <button data-menu-action="highlight-cell">高亮单元格</button>
+      <button data-menu-action="highlight-row">高亮行</button>
+      <button data-menu-action="clear-highlight">清除高亮</button>
+      <button data-menu-action="delete" class="danger">删除本行</button>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
