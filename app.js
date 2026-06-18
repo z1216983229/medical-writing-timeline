@@ -1,11 +1,11 @@
-import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js";
+import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260618-no-notes";
 import {
   buildCalendar,
   buildExcelHtml,
   formatDisplayDate,
   normalizeDate,
   recalculateSteps,
-} from "./timeline-core.js";
+} from "./timeline-core.js?v=20260618-no-notes";
 
 const STORAGE_KEY = "mwTimelineTool.v1";
 
