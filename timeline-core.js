@@ -93,7 +93,7 @@ export function recalculateSteps(steps, projectStartDate, calendar) {
 
 export function toTsv(project, steps) {
   const rows = [
-    ["序号", "任务范围", "任务名称", "任务负责人", "Duration 工作日", "计划开始日期", "计划结束日期", "备注"],
+    ["序号", "任务范围", "任务名称", "任务负责人", "Duration 工作日", "计划开始日期", "计划结束日期"],
     ...steps.map((step) => [
       step.order,
       step.scope,
@@ -102,7 +102,6 @@ export function toTsv(project, steps) {
       step.duration,
       formatDisplayDate(step.startDate),
       formatDisplayDate(step.endDate),
-      step.notes,
     ]),
   ];
   return rows.map((row) => row.map(escapeTsvCell).join("\t")).join("\n");
@@ -118,7 +117,7 @@ export function buildExcelHtml(project, steps, holidayMeta = {}) {
     ["导出时间", new Date().toLocaleString("zh-CN")],
   ];
   const tableRows = [
-    ["序号", "任务范围", "任务名称", "任务负责人", "Duration 工作日", "计划开始日期", "计划结束日期", "备注"],
+    ["序号", "任务范围", "任务名称", "任务负责人", "Duration 工作日", "计划开始日期", "计划结束日期"],
     ...steps.map((step) => [
       step.order,
       step.scope,
@@ -127,7 +126,6 @@ export function buildExcelHtml(project, steps, holidayMeta = {}) {
       step.duration,
       formatDisplayDate(step.startDate),
       formatDisplayDate(step.endDate),
-      step.notes,
     ]),
   ];
   const info = infoRows.map((row) => `<tr>${row.map(htmlCell).join("")}</tr>`).join("");

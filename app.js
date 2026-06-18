@@ -233,7 +233,6 @@ function renderTimeline() {
       <td data-col="duration" class="${cellClass(step, "duration")}">${numberInput(index, "duration", step.duration)}</td>
       <td data-col="start" class="${cellClass(step, "start")}">${index === 0 ? dateInput(index, "projectStart", step.startDate) : calculatedDateCell(step.startDate)}</td>
       <td data-col="end" class="${cellClass(step, "end")}">${calculatedDateCell(step.endDate)}</td>
-      <td data-col="notes" class="${cellClass(step, "notes")}">${textCell(step.notes)}</td>
     `;
     els.timelineBody.append(tr);
   });
