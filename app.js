@@ -1,11 +1,11 @@
-import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260618-no-notes";
+import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260701-writing-anchor";
 import {
   buildCalendar,
   buildExcelHtml,
   formatDisplayDate,
   normalizeDate,
   recalculateSteps,
-} from "./timeline-core.js?v=20260618-no-notes";
+} from "./timeline-core.js?v=20260701-writing-anchor";
 
 const STORAGE_KEY = "mwTimelineTool.v1";
 
@@ -27,11 +27,13 @@ const els = {
 };
 
 let state = loadState();
+migrateWritingStages();
 
 if (new URLSearchParams(location.search).get("reset") === "1") {
   localStorage.removeItem(STORAGE_KEY);
   history.replaceState(null, "", location.pathname);
   state = defaultState();
+  migrateWritingStages();
 }
 
 bindEvents();
@@ -83,6 +85,7 @@ function bindEvents() {
       holidayYear: new Date().getFullYear(),
       steps: cloneSteps(CSR_TEMPLATE.steps),
     });
+    migrateProjectWritingStage(project);
     state.projects.unshift(project);
     state.activeProjectId = project.id;
     saveAndRender("已新建项目");
@@ -109,6 +112,9 @@ function bindEvents() {
     project.steps = cloneSteps(template.steps);
     project.startDate = project.startDate || todayIso();
     project.holidayYear = Number(project.startDate.slice(0, 4)) || new Date().getFullYear();
+    delete project.writingStartStepId;
+    delete project.timelineMode;
+    migrateProjectWritingStage(project);
     saveAndRender("已套用模板");
   });
 
@@ -148,6 +154,7 @@ function bindEvents() {
       ...imported,
       holidays: { ...structuredClone(BUILT_IN_HOLIDAYS), ...(imported.holidays || {}) },
     };
+    migrateWritingStages();
     state.activeProjectId = state.activeProjectId || state.projects[0]?.id;
     els.importLibraryInput.value = "";
     saveAndRender("已导入项目库");
@@ -166,6 +173,7 @@ function bindEvents() {
       holidayYear: new Date().getFullYear(),
       steps: cloneSteps(CSR_TEMPLATE.steps),
     }));
+    state.projects.forEach(migrateProjectWritingStage);
     state.activeProjectId = state.projects[0].id;
     saveAndRender("已删除项目");
   });
@@ -220,6 +228,7 @@ function renderTimeline() {
   const project = activeProject();
   if (!project) return;
   const rows = calculatedSteps(project);
+  const calculationStartIndex = writingStartIndex(project);
   els.timelineBody.innerHTML = "";
   rows.forEach((step, index) => {
     const tr = document.createElement("tr");
@@ -231,8 +240,8 @@ function renderTimeline() {
       <td data-col="task" class="${cellClass(step, "task")}">${textArea(index, "task", step.task)}</td>
       <td data-col="owner" class="${cellClass(step, "owner")}">${textArea(index, "owner", step.owner)}</td>
       <td data-col="duration" class="${cellClass(step, "duration")}">${numberInput(index, "duration", step.duration)}</td>
-      <td data-col="start" class="${cellClass(step, "start")}">${index === 0 ? dateInput(index, "projectStart", step.startDate) : calculatedDateCell(step.startDate)}</td>
-      <td data-col="end" class="${cellClass(step, "end")}">${calculatedDateCell(step.endDate)}</td>
+      <td data-col="start" class="${cellClass(step, "start")}">${index <= calculationStartIndex ? dateInput(index, index === calculationStartIndex ? "projectStart" : "manualStartDate", step.startDate) : calculatedDateCell(step.startDate)}</td>
+      <td data-col="end" class="${cellClass(step, "end")}">${index < calculationStartIndex ? dateInput(index, "manualEndDate", step.endDate) : calculatedDateCell(step.endDate)}</td>
     `;
     els.timelineBody.append(tr);
   });
@@ -253,15 +262,19 @@ function renderTimeline() {
     });
   });
 
-  els.timelineBody.querySelectorAll('input[data-date-field="projectStart"]').forEach((input) => {
+  els.timelineBody.querySelectorAll("input[data-date-field]").forEach((input) => {
     input.addEventListener("change", (event) => {
       const project = activeProject();
       if (!project) return;
       const index = Number(event.target.dataset.index);
       const field = event.target.dataset.dateField;
       const value = normalizeDate(event.target.value);
-      project.startDate = value;
-      project.holidayYear = Number(project.startDate.slice(0, 4)) || project.holidayYear;
+      if (field === "projectStart") {
+        project.startDate = value;
+        project.holidayYear = Number(project.startDate.slice(0, 4)) || project.holidayYear;
+      } else {
+        project.steps[index][field] = value;
+      }
       saveAndRender();
     });
   });
@@ -275,10 +288,16 @@ function handleRowAction(action, index, column) {
   const project = activeProject();
   if (!project) return;
   const step = project.steps[index];
+  const calculationStartIndex = writingStartIndex(project);
   if (action === "up" && index > 0) swap(project.steps, index, index - 1);
   if (action === "down" && index < project.steps.length - 1) swap(project.steps, index, index + 1);
   if (action === "copy") project.steps.splice(index + 1, 0, { ...structuredClone(project.steps[index]), id: id() });
-  if (action === "delete") project.steps.splice(index, 1);
+  if (action === "delete") {
+    project.steps.splice(index, 1);
+    if (step?.id === project.writingStartStepId) {
+      project.writingStartStepId = project.steps[Math.min(calculationStartIndex, project.steps.length - 1)]?.id || "";
+    }
+  }
   if (action === "insert-above") project.steps.splice(index, 0, newStep());
   if (action === "insert-below") project.steps.splice(index + 1, 0, newStep());
   if (action === "highlight-row" && step) step.rowColor = "highlight";
@@ -289,7 +308,7 @@ function handleRowAction(action, index, column) {
     delete step.rowColor;
     if (column && step.cellColors) delete step.cellColors[column];
   }
-  if (action === "clear-cell" && step && isEditableColumn(column, index)) {
+  if (action === "clear-cell" && step && isEditableColumn(project, column, index)) {
     clearEditableCell(project, step, index, column);
   }
   if (action === "cell-clear" && step?.cellColors && column) {
@@ -306,7 +325,7 @@ function showRowMenu(event) {
   const column = event.currentTarget.dataset.col || "";
   els.rowMenu.dataset.index = String(index);
   els.rowMenu.dataset.column = column;
-  els.rowMenu.querySelector('[data-menu-action="clear-cell"]').disabled = !isEditableColumn(column, index);
+  els.rowMenu.querySelector('[data-menu-action="clear-cell"]').disabled = !isEditableColumn(activeProject(), column, index);
   els.rowMenu.hidden = false;
   const left = Math.min(event.clientX, window.innerWidth - els.rowMenu.offsetWidth - 8);
   const top = Math.min(event.clientY, window.innerHeight - els.rowMenu.offsetHeight - 8);
@@ -401,7 +420,39 @@ function selectedTemplate() {
 }
 
 function calculatedSteps(project) {
-  return recalculateSteps(project.steps, project.startDate, buildCalendar(holidayData(project.holidayYear)));
+  return recalculateSteps(
+    project.steps,
+    project.startDate,
+    buildCalendar(holidayData(project.holidayYear)),
+    writingStartIndex(project)
+  );
+}
+
+function writingStartIndex(project) {
+  if (!project?.steps?.length) return 0;
+  const index = project.steps.findIndex((step) => step.id === project.writingStartStepId);
+  return index >= 0 ? index : Math.min(2, project.steps.length - 1);
+}
+
+function migrateWritingStages() {
+  state.projects.forEach(migrateProjectWritingStage);
+  saveState();
+}
+
+function migrateProjectWritingStage(project) {
+  if (!project?.steps?.length || project.timelineMode === "writing-anchor-v1") return;
+  const targetIndex = Math.min(2, project.steps.length - 1);
+  const calendar = buildCalendar(holidayData(project.holidayYear));
+  const legacyRows = recalculateSteps(project.steps, project.startDate, calendar, 0);
+
+  for (let index = 0; index < targetIndex; index += 1) {
+    project.steps[index].manualStartDate = legacyRows[index]?.startDate || "";
+    project.steps[index].manualEndDate = legacyRows[index]?.endDate || "";
+  }
+
+  project.startDate = legacyRows[targetIndex]?.startDate || project.startDate;
+  project.writingStartStepId = project.steps[targetIndex].id;
+  project.timelineMode = "writing-anchor-v1";
 }
 
 function holidayData(year) {
@@ -448,15 +499,19 @@ function calculatedDateCell(value) {
   return `<div class="display-cell calculated-date">${formatDisplayDate(value) || ""}</div>`;
 }
 
-function isEditableColumn(column, index) {
-  return ["scope", "task", "owner", "duration"].includes(column) || (column === "start" && index === 0);
+function isEditableColumn(project, column, index) {
+  if (["scope", "task", "owner", "duration"].includes(column)) return true;
+  const calculationStartIndex = writingStartIndex(project);
+  if (column === "start") return index <= calculationStartIndex;
+  if (column === "end") return index < calculationStartIndex;
+  return false;
 }
 
 function clearEditableCell(project, step, index, column) {
   if (column === "scope" || column === "task" || column === "owner") step[column] = "";
   if (column === "duration") step.duration = "";
   if (column === "start") {
-    if (index === 0) {
+    if (index === writingStartIndex(project)) {
       project.startDate = "";
     } else {
       step.manualStartDate = "";

@@ -67,11 +67,17 @@ export function addWorkdaysInclusive(startDate, duration, calendar) {
   return cursor;
 }
 
-export function recalculateSteps(steps, projectStartDate, calendar) {
+export function recalculateSteps(steps, projectStartDate, calendar, calculationStartIndex = 0) {
   let cursor = firstWorkdayOnOrAfter(projectStartDate, calendar);
   return steps.map((step, index) => {
     const duration = Number(step.duration);
     const result = { ...step, order: index + 1, startDate: "", endDate: "", warning: "" };
+
+    if (index < calculationStartIndex) {
+      result.startDate = normalizeDate(step.manualStartDate);
+      result.endDate = normalizeDate(step.manualEndDate);
+      return result;
+    }
 
     if (!cursor) {
       return result;
