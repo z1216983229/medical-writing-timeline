@@ -174,8 +174,14 @@ textarea:focus {
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 1px;
   line-height: 1.25;
+}
+
+.project-item span {
+  text-align: left;
+  display: block;
 }
 
 .project-item:hover {
