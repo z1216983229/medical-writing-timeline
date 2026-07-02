@@ -1,11 +1,11 @@
-import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260703-ui-design";
+import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260703-library-io";
 import {
   buildCalendar,
   buildExcelHtml,
   formatDisplayDate,
   normalizeDate,
   recalculateSteps,
-} from "./timeline-core.js?v=20260703-ui-design";
+} from "./timeline-core.js?v=20260703-library-io";
 
 const STORAGE_KEY = "mwTimelineTool.v1";
 
@@ -18,6 +18,8 @@ const els = {
   exportExcelBtn: document.querySelector("#exportExcelBtn"),
   saveAsProjectBtn: document.querySelector("#saveAsProjectBtn"),
   updateHolidaysBtn: document.querySelector("#updateHolidaysBtn"),
+  exportLibraryBtn: document.querySelector("#exportLibraryBtn"),
+  importLibraryInput: document.querySelector("#importLibraryInput"),
   deleteProjectBtn: document.querySelector("#deleteProjectBtn"),
   statusLine: document.querySelector("#statusLine"),
   timelineBody: document.querySelector("#timelineBody"),
@@ -106,6 +108,40 @@ function bindEvents() {
   els.saveAsProjectBtn.addEventListener("click", saveAsNewProject);
 
   els.updateHolidaysBtn.addEventListener("click", updateHolidays);
+
+  els.exportLibraryBtn.addEventListener("click", () => {
+    download("medical-writing-timeline-library.json", JSON.stringify(state, null, 2), "application/json;charset=utf-8");
+    setStatus("已导出项目库");
+  });
+
+  els.importLibraryInput.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    let imported;
+    try {
+      imported = JSON.parse(text);
+    } catch {
+      alert("文件格式不正确，请选择导出的 JSON 文件");
+      els.importLibraryInput.value = "";
+      return;
+    }
+    if (!Array.isArray(imported.projects)) {
+      alert("项目库文件格式不正确");
+      els.importLibraryInput.value = "";
+      return;
+    }
+    state = {
+      ...defaultState(),
+      ...imported,
+      holidays: { ...structuredClone(BUILT_IN_HOLIDAYS), ...(imported.holidays || {}) },
+    };
+    migrateWritingStages();
+    state.activeProjectId = state.activeProjectId || state.projects[0]?.id;
+    els.importLibraryInput.value = "";
+    saveAndRender("已导入项目库");
+  });
+
   els.deleteProjectBtn.addEventListener("click", () => {
     const project = activeProject();
     if (!project) return;
