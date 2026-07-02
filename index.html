@@ -42,7 +42,7 @@
         <div class="toolbar">
           <button id="saveProjectBtn">保存</button>
           <button id="exportExcelBtn">导出Excel</button>
-          <button id="updateHolidaysBtn">节假日管理</button>
+          <button id="updateHolidaysBtn">更新节假日</button>
           <button id="deleteProjectBtn" class="danger">删除项目</button>
           <span id="statusLine" class="status-line"></span>
         </div>
@@ -87,55 +87,6 @@
       <button data-menu-action="delete" class="danger">删除本行</button>
     </div>
 
-    <div id="holidayModal" class="modal" hidden>
-      <div class="modal-panel">
-        <header class="modal-header">
-          <h2>节假日管理</h2>
-          <button id="holidayModalClose" class="modal-close" aria-label="关闭">×</button>
-        </header>
-        <div class="modal-body">
-          <div class="holiday-controls">
-            <div class="field compact">
-              <label for="holidayYearSelect">年份</label>
-              <select id="holidayYearSelect"></select>
-            </div>
-            <div class="field compact holiday-year-add">
-              <label for="newHolidayYear">新增年份</label>
-              <input id="newHolidayYear" type="number" min="2024" max="2099" placeholder="如 2027">
-              <button id="addHolidayYearBtn" class="small">添加</button>
-            </div>
-            <span id="holidayMeta" class="holiday-meta"></span>
-          </div>
-          <div class="holiday-lists">
-            <div class="holiday-list-block">
-              <h3>放假日 <span id="offDaysCount" class="count"></span></h3>
-              <div id="offDaysList" class="holiday-list"></div>
-              <div class="holiday-add-row">
-                <input id="newOffDate" type="date">
-                <input id="newOffName" type="text" placeholder="名称" maxlength="20">
-                <button id="addOffDayBtn" class="small">+ 添加</button>
-              </div>
-            </div>
-            <div class="holiday-list-block">
-              <h3>调休工作日 <span id="workDaysCount" class="count"></span></h3>
-              <div id="workDaysList" class="holiday-list"></div>
-              <div class="holiday-add-row">
-                <input id="newWorkDate" type="date">
-                <input id="newWorkName" type="text" placeholder="名称" maxlength="20">
-                <button id="addWorkDayBtn" class="small">+ 添加</button>
-              </div>
-            </div>
-          </div>
-          <p class="holiday-tip" id="holidayTip"></p>
-        </div>
-        <footer class="modal-footer">
-          <button id="holidayRefreshBtn">尝试在线更新</button>
-          <button id="holidayResetBtn">重置为内置数据</button>
-          <button id="holidayDoneBtn" class="primary">完成</button>
-        </footer>
-      </div>
-    </div>
-
-    <script type="module" src="./app.js?v=20260702-holiday-editor"></script>
+    <script type="module" src="./app.js?v=20260702-auto-holidays"></script>
   </body>
 </html>

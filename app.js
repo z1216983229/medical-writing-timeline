@@ -1,11 +1,11 @@
-import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260702-holiday-editor";
+import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260702-auto-holidays";
 import {
   buildCalendar,
   buildExcelHtml,
   formatDisplayDate,
   normalizeDate,
   recalculateSteps,
-} from "./timeline-core.js?v=20260702-holiday-editor";
+} from "./timeline-core.js?v=20260702-auto-holidays";
 
 const STORAGE_KEY = "mwTimelineTool.v1";
 
@@ -24,30 +24,9 @@ const els = {
   statusLine: document.querySelector("#statusLine"),
   timelineBody: document.querySelector("#timelineBody"),
   rowMenu: document.querySelector("#rowMenu"),
-  holidayModal: document.querySelector("#holidayModal"),
-  holidayModalClose: document.querySelector("#holidayModalClose"),
-  holidayYearSelect: document.querySelector("#holidayYearSelect"),
-  newHolidayYear: document.querySelector("#newHolidayYear"),
-  addHolidayYearBtn: document.querySelector("#addHolidayYearBtn"),
-  holidayMeta: document.querySelector("#holidayMeta"),
-  offDaysList: document.querySelector("#offDaysList"),
-  offDaysCount: document.querySelector("#offDaysCount"),
-  newOffDate: document.querySelector("#newOffDate"),
-  newOffName: document.querySelector("#newOffName"),
-  addOffDayBtn: document.querySelector("#addOffDayBtn"),
-  workDaysList: document.querySelector("#workDaysList"),
-  workDaysCount: document.querySelector("#workDaysCount"),
-  newWorkDate: document.querySelector("#newWorkDate"),
-  newWorkName: document.querySelector("#newWorkName"),
-  addWorkDayBtn: document.querySelector("#addWorkDayBtn"),
-  holidayRefreshBtn: document.querySelector("#holidayRefreshBtn"),
-  holidayResetBtn: document.querySelector("#holidayResetBtn"),
-  holidayDoneBtn: document.querySelector("#holidayDoneBtn"),
-  holidayTip: document.querySelector("#holidayTip"),
 };
 
 let state = loadState();
-let holidayModalYear = null;
 migrateWritingStages();
 
 if (new URLSearchParams(location.search).get("reset") === "1") {
@@ -181,7 +160,7 @@ function bindEvents() {
     saveAndRender("已导入项目库");
   });
 
-  els.updateHolidaysBtn.addEventListener("click", openHolidayModal);
+  els.updateHolidaysBtn.addEventListener("click", updateHolidays);
   els.deleteProjectBtn.addEventListener("click", () => {
     const project = activeProject();
     if (!project) return;
@@ -201,13 +180,9 @@ function bindEvents() {
   els.rowMenu.addEventListener("click", handleMenuAction);
   document.addEventListener("click", hideRowMenu);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      hideRowMenu();
-      if (!els.holidayModal.hidden) closeHolidayModal();
-    }
+    if (event.key === "Escape") hideRowMenu();
   });
   bindColumnResizers();
-  bindHolidayModalEvents();
 }
 
 function render() {
@@ -373,226 +348,28 @@ function handleMenuAction(event) {
   handleRowAction(action, index, column);
 }
 
-async function updateHolidays(year) {
-  const targetYear = Number(year);
-  if (!targetYear) return false;
+async function updateHolidays() {
+  setStatus("正在更新节假日...");
   try {
-    const response = await fetch(`https://api.jiejiariapi.com/v1/holidays/${targetYear}`, { cache: "no-store" });
+    const response = await fetch(`./holidays.json?v=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    const offDays = [];
-    const workDays = [];
-    Object.values(data).forEach((item) => {
-      if (!item?.date) return;
-      const entry = { date: normalizeDate(item.date), name: item.name || "" };
-      if (item.isOffDay) offDays.push(entry);
-      if (!item.isOffDay && isWeekendDate(entry.date)) workDays.push(entry);
-    });
-    offDays.sort((a, b) => a.date.localeCompare(b.date));
-    workDays.sort((a, b) => a.date.localeCompare(b.date));
-    state.holidays[targetYear] = {
-      source: "api.jiejiariapi.com",
-      updatedAt: new Date().toISOString(),
-      offDays,
-      workDays,
-    };
-    saveState();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function bindHolidayModalEvents() {
-  els.holidayModalClose.addEventListener("click", closeHolidayModal);
-  els.holidayDoneBtn.addEventListener("click", closeHolidayModal);
-  els.holidayModal.addEventListener("click", (event) => {
-    if (event.target === els.holidayModal) closeHolidayModal();
-  });
-  els.holidayYearSelect.addEventListener("change", () => {
-    holidayModalYear = Number(els.holidayYearSelect.value);
-    renderHolidayModal();
-  });
-  els.addHolidayYearBtn.addEventListener("click", addHolidayYear);
-  els.newHolidayYear.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") addHolidayYear();
-  });
-  els.addOffDayBtn.addEventListener("click", addOffDay);
-  els.addWorkDayBtn.addEventListener("click", addWorkDay);
-  els.newOffDate.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") addOffDay();
-  });
-  els.newWorkDate.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") addWorkDay();
-  });
-  els.holidayRefreshBtn.addEventListener("click", async () => {
-    if (!holidayModalYear) return;
-    els.holidayRefreshBtn.disabled = true;
-    els.holidayRefreshBtn.textContent = "更新中...";
-    const ok = await updateHolidays(holidayModalYear);
-    els.holidayRefreshBtn.disabled = false;
-    els.holidayRefreshBtn.textContent = "尝试在线更新";
-    if (ok) {
-      els.holidayTip.textContent = `已在线更新 ${holidayModalYear} 节假日数据。`;
-      renderHolidayModal();
-      saveAndRender();
-    } else {
-      els.holidayTip.textContent = "在线更新失败（节假日 API 不支持跨域访问）。可在此面板手动维护节假日，或直接关闭使用内置数据。";
+    const updatedYears = [];
+    for (const [year, holidayData] of Object.entries(data)) {
+      const numYear = Number(year);
+      if (holidayData?.offDays && holidayData?.workDays) {
+        state.holidays[numYear] = normalizeHolidayData(holidayData);
+        updatedYears.push(numYear);
+      }
     }
-  });
-  els.holidayResetBtn.addEventListener("click", () => {
-    if (!holidayModalYear) return;
-    if (!confirm(`重置 ${holidayModalYear} 节假日为内置数据？手动修改将丢失。`)) return;
-    delete state.holidays[holidayModalYear];
-    saveState();
-    els.holidayTip.textContent = `已重置 ${holidayModalYear} 为内置数据。`;
-    renderHolidayModal();
-    saveAndRender();
-  });
-  els.offDaysList.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-remove]");
-    if (!btn) return;
-    removeHoliday("offDays", btn.dataset.remove);
-  });
-  els.workDaysList.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-remove]");
-    if (!btn) return;
-    removeHoliday("workDays", btn.dataset.remove);
-  });
-}
-
-function openHolidayModal() {
-  const project = activeProject();
-  holidayModalYear = project ? Number(project.holidayYear) : new Date().getFullYear();
-  if (!state.holidays[holidayModalYear] && !BUILT_IN_HOLIDAYS[holidayModalYear]) {
-    ensureHolidayData(holidayModalYear);
+    if (updatedYears.length) {
+      saveAndRender(`已更新节假日数据（${updatedYears.join("、")}）`);
+    } else {
+      setStatus("节假日数据为空，继续使用内置数据");
+    }
+  } catch (error) {
+    setStatus(`更新失败，继续使用内置数据：${error.message}`);
   }
-  els.holidayModal.hidden = false;
-  renderHolidayModal();
-  els.holidayTip.textContent = "";
-}
-
-function closeHolidayModal() {
-  els.holidayModal.hidden = true;
-  holidayModalYear = null;
-  saveAndRender();
-}
-
-function renderHolidayModal() {
-  const years = new Set([
-    ...Object.keys(state.holidays).map(Number),
-    ...Object.keys(BUILT_IN_HOLIDAYS).map(Number),
-    new Date().getFullYear(),
-    holidayModalYear,
-  ].filter(Boolean));
-  const sortedYears = [...years].sort((a, b) => a - b);
-  els.holidayYearSelect.innerHTML = sortedYears
-    .map((y) => `<option value="${y}" ${y === holidayModalYear ? "selected" : ""}>${y}</option>`)
-    .join("");
-
-  const data = holidayData(holidayModalYear);
-  const isBuiltIn = !state.holidays[holidayModalYear] && !!BUILT_IN_HOLIDAYS[holidayModalYear];
-  els.holidayMeta.textContent = `来源：${data.meta.source}${data.meta.updatedAt ? ` · ${formatDisplayDate(data.meta.updatedAt.slice(0, 10))}` : ""}${isBuiltIn ? "（内置）" : ""}`;
-
-  const renderList = (items, countEl, listEl) => {
-    const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date));
-    countEl.textContent = `（${sorted.length}）`;
-    listEl.innerHTML = sorted.length
-      ? sorted.map((item) => `
-        <div class="holiday-item">
-          <span class="holiday-date">${escapeHtml(formatDisplayDate(item.date))}</span>
-          <span class="holiday-name">${escapeHtml(item.name || "—")}</span>
-          <button class="holiday-remove" data-remove="${escapeAttr(item.date)}" title="删除">×</button>
-        </div>`).join("")
-      : `<div class="holiday-empty">暂无数据，请在下方添加</div>`;
-  };
-  renderList(data.offDays, els.offDaysCount, els.offDaysList);
-  renderList(data.workDays, els.workDaysCount, els.workDaysList);
-
-  els.newOffDate.value = "";
-  els.newOffName.value = "";
-  els.newWorkDate.value = "";
-  els.newWorkName.value = "";
-}
-
-function ensureHolidayYear(year) {
-  if (!state.holidays[year]) {
-    state.holidays[year] = normalizeHolidayData(BUILT_IN_HOLIDAYS[year] || { source: "手动维护", offDays: [], workDays: [] });
-  }
-  return state.holidays[year];
-}
-
-function addHolidayYear() {
-  const year = Number(els.newHolidayYear.value);
-  if (!year || year < 2024 || year > 2099) {
-    els.holidayTip.textContent = "请输入 2024-2099 之间的年份。";
-    return;
-  }
-  ensureHolidayYear(year);
-  holidayModalYear = year;
-  els.newHolidayYear.value = "";
-  els.holidayTip.textContent = `已添加年份 ${year}。`;
-  renderHolidayModal();
-  saveState();
-}
-
-function addOffDay() {
-  if (!holidayModalYear) return;
-  const date = normalizeDate(els.newOffDate.value);
-  const name = els.newOffName.value.trim();
-  if (!date) {
-    els.holidayTip.textContent = "请选择放假日日期。";
-    return;
-  }
-  const data = ensureHolidayYear(holidayModalYear);
-  if (data.offDays.some((item) => item.date === date)) {
-    els.holidayTip.textContent = `${formatDisplayDate(date)} 已存在于放假日列表。`;
-    return;
-  }
-  if (data.workDays.some((item) => item.date === date)) {
-    data.workDays = data.workDays.filter((item) => item.date !== date);
-  }
-  data.offDays.push({ date, name });
-  data.source = "手动维护";
-  data.updatedAt = new Date().toISOString();
-  saveState();
-  renderHolidayModal();
-  els.holidayTip.textContent = `已添加放假日 ${formatDisplayDate(date)}。`;
-}
-
-function addWorkDay() {
-  if (!holidayModalYear) return;
-  const date = normalizeDate(els.newWorkDate.value);
-  const name = els.newWorkName.value.trim();
-  if (!date) {
-    els.holidayTip.textContent = "请选择调休工作日日期。";
-    return;
-  }
-  const data = ensureHolidayYear(holidayModalYear);
-  if (data.workDays.some((item) => item.date === date)) {
-    els.holidayTip.textContent = `${formatDisplayDate(date)} 已存在于调休工作日列表。`;
-    return;
-  }
-  if (data.offDays.some((item) => item.date === date)) {
-    data.offDays = data.offDays.filter((item) => item.date !== date);
-  }
-  data.workDays.push({ date, name });
-  data.source = "手动维护";
-  data.updatedAt = new Date().toISOString();
-  saveState();
-  renderHolidayModal();
-  els.holidayTip.textContent = `已添加调休工作日 ${formatDisplayDate(date)}。`;
-}
-
-function removeHoliday(type, date) {
-  if (!holidayModalYear) return;
-  const data = state.holidays[holidayModalYear];
-  if (!data) return;
-  data[type] = data[type].filter((item) => item.date !== date);
-  data.source = "手动维护";
-  data.updatedAt = new Date().toISOString();
-  saveState();
-  renderHolidayModal();
 }
 
 function createProject({ name, templateName, startDate, holidayYear, steps }) {
