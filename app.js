@@ -1,11 +1,11 @@
-import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260703-direct-new";
+import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260703-ui-design";
 import {
   buildCalendar,
   buildExcelHtml,
   formatDisplayDate,
   normalizeDate,
   recalculateSteps,
-} from "./timeline-core.js?v=20260703-direct-new";
+} from "./timeline-core.js?v=20260703-ui-design";
 
 const STORAGE_KEY = "mwTimelineTool.v1";
 
@@ -147,13 +147,43 @@ function renderProjectList() {
     .forEach((project) => {
       const button = document.createElement("button");
       button.className = `project-item${project.id === state.activeProjectId ? " active" : ""}`;
-      button.innerHTML = `<strong>${escapeHtml(project.name)}</strong><span>${formatDisplayDate(project.startDate)}</span>`;
+      const meta = projectMeta(project);
+      button.innerHTML = `
+        <span class="pi-name">${escapeHtml(project.name)}</span>
+        <span class="pi-meta">${meta.finalDate}</span>
+        <span class="pi-next">${meta.nextMilestone}</span>
+      `;
       button.addEventListener("click", () => {
         state.activeProjectId = project.id;
         saveAndRender();
       });
       els.projectList.append(button);
     });
+}
+
+function projectMeta(project) {
+  if (!project?.steps?.length) return { finalDate: "—", nextMilestone: "—" };
+  const rows = calculatedSteps(project);
+  const today = todayIso();
+
+  let finalDate = "—";
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].endDate) {
+      finalDate = `最终 ${formatDisplayDate(rows[i].endDate)}`;
+      break;
+    }
+  }
+
+  let nextMilestone = "已完成";
+  for (const row of rows) {
+    if (row.startDate && row.startDate >= today) {
+      const taskLabel = row.task ? row.task.slice(0, 20) : "未命名";
+      nextMilestone = `下一步 ${formatDisplayDate(row.startDate)} ${escapeHtml(taskLabel)}`;
+      break;
+    }
+  }
+
+  return { finalDate, nextMilestone };
 }
 
 function renderProjectForm() {
@@ -172,6 +202,8 @@ function renderTimeline() {
     const tr = document.createElement("tr");
     tr.dataset.index = String(index);
     if (step.rowColor) tr.classList.add("row-highlight");
+    if (index === calculationStartIndex) tr.classList.add("row-anchor");
+    else if (index < calculationStartIndex) tr.classList.add("row-manual");
     tr.innerHTML = `
       <td data-col="order">${step.order}</td>
       <td data-col="scope" class="${cellClass(step, "scope")}">${textArea(index, "scope", step.scope)}</td>
@@ -462,11 +494,13 @@ function numberInput(index, field, value) {
 }
 
 function dateInput(index, field, value) {
-  return `<div class="date-cell"><input data-index="${index}" data-date-field="${field}" type="date" value="${escapeAttr(value)}"><span>${formatDisplayDate(value) || "年 / 月 / 日"}</span></div>`;
+  const display = formatDisplayDate(value);
+  return `<div class="date-cell"><input data-index="${index}" data-date-field="${field}" type="date" value="${escapeAttr(value)}"><span class="${display ? "" : "empty"}">${display || "未填写"}</span></div>`;
 }
 
 function calculatedDateCell(value) {
-  return `<div class="display-cell calculated-date">${formatDisplayDate(value) || ""}</div>`;
+  const display = formatDisplayDate(value);
+  return `<div class="calculated-date ${display ? "has-value" : ""}">${display || "自动计算"}</div>`;
 }
 
 function isEditableColumn(project, column, index) {

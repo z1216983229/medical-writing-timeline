@@ -14,9 +14,15 @@
             <h1>Timeline</h1>
             <p>Medical Writing</p>
           </div>
-          <button id="newProjectBtn" class="primary">新建</button>
+          <button id="newProjectBtn" class="btn-primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            新建
+          </button>
         </div>
-        <input id="projectSearch" class="search" type="search" placeholder="搜索项目">
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="projectSearch" class="search" type="search" placeholder="搜索项目">
+        </div>
         <div id="projectList" class="project-list"></div>
       </aside>
 
@@ -29,38 +35,62 @@
         </header>
 
         <div class="toolbar">
-          <button id="saveProjectBtn">保存</button>
-          <button id="exportExcelBtn">导出Excel</button>
-          <button id="saveAsProjectBtn">另存为新项目</button>
-          <button id="updateHolidaysBtn">更新节假日</button>
-          <button id="deleteProjectBtn" class="danger">删除项目</button>
+          <button id="saveProjectBtn" class="btn-primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            保存
+          </button>
+          <button id="exportExcelBtn" class="btn-outline">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导出 Excel
+          </button>
+          <button id="saveAsProjectBtn" class="btn-outline">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            另存为新项目
+          </button>
+          <div class="toolbar-divider"></div>
+          <button id="updateHolidaysBtn" class="btn-outline">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"/><path d="M2.5 12.5A10 10 0 0 1 13 3"/><path d="M2.5 22v-6h6"/><path d="M21.5 11.5A10 10 0 0 1 11 21"/></svg>
+            更新节假日
+          </button>
+          <div class="toolbar-spacer"></div>
+          <button id="deleteProjectBtn" class="btn-danger-outline">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            删除项目
+          </button>
           <span id="statusLine" class="status-line"></span>
         </div>
 
         <section class="table-wrap">
-          <table class="timeline-table">
-            <colgroup>
-              <col style="width: 60px">
-              <col style="width: 200px">
-              <col style="width: 260px">
-              <col style="width: 210px">
-              <col style="width: 130px">
-              <col style="width: 150px">
-              <col style="width: 150px">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>序号<span class="col-resizer"></span></th>
-                <th>任务范围<span class="col-resizer"></span></th>
-                <th>任务名称<span class="col-resizer"></span></th>
-                <th>任务负责人<span class="col-resizer"></span></th>
-                <th>Duration 工作日<span class="col-resizer"></span></th>
-                <th>计划开始日期<span class="col-resizer"></span></th>
-                <th>计划结束日期<span class="col-resizer"></span></th>
-              </tr>
-            </thead>
-            <tbody id="timelineBody"></tbody>
-          </table>
+          <div class="table-card">
+            <table class="timeline-table">
+              <colgroup>
+                <col style="width: 50px">
+                <col style="width: 180px">
+                <col>
+                <col style="width: 160px">
+                <col style="width: 100px">
+                <col style="width: 130px">
+                <col style="width: 130px">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>序号<span class="col-resizer"></span></th>
+                  <th>任务范围<span class="col-resizer"></span></th>
+                  <th>任务名称<span class="col-resizer"></span></th>
+                  <th>任务负责人<span class="col-resizer"></span></th>
+                  <th>天数<span class="col-resizer"></span></th>
+                  <th>计划开始日期<span class="col-resizer"></span></th>
+                  <th>计划结束日期<span class="col-resizer"></span></th>
+                </tr>
+              </thead>
+              <tbody id="timelineBody"></tbody>
+            </table>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-dot manual"></span> 手动输入</span>
+            <span class="legend-item"><span class="legend-dot anchor"></span> 写作起点</span>
+            <span class="legend-item"><span class="legend-dot auto"></span> 自动计算</span>
+          </div>
         </section>
       </section>
     </main>
@@ -77,6 +107,6 @@
       <button data-menu-action="delete" class="danger">删除本行</button>
     </div>
 
-    <script type="module" src="./app.js?v=20260703-direct-new"></script>
+    <script type="module" src="./app.js?v=20260703-ui-design"></script>
   </body>
 </html>
