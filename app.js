@@ -1,11 +1,11 @@
-import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260702-auto-holidays";
+import { BUILT_IN_HOLIDAYS, CSR_TEMPLATE } from "./holiday-data.js?v=20260703-ui-revamp";
 import {
   buildCalendar,
   buildExcelHtml,
   formatDisplayDate,
   normalizeDate,
   recalculateSteps,
-} from "./timeline-core.js?v=20260702-auto-holidays";
+} from "./timeline-core.js?v=20260703-ui-revamp";
 
 const STORAGE_KEY = "mwTimelineTool.v1";
 
@@ -13,17 +13,19 @@ const els = {
   newProjectBtn: document.querySelector("#newProjectBtn"),
   projectSearch: document.querySelector("#projectSearch"),
   projectList: document.querySelector("#projectList"),
-  exportLibraryBtn: document.querySelector("#exportLibraryBtn"),
-  importLibraryInput: document.querySelector("#importLibraryInput"),
   projectName: document.querySelector("#projectName"),
-  templateSelect: document.querySelector("#templateSelect"),
   saveProjectBtn: document.querySelector("#saveProjectBtn"),
   exportExcelBtn: document.querySelector("#exportExcelBtn"),
+  saveAsProjectBtn: document.querySelector("#saveAsProjectBtn"),
   updateHolidaysBtn: document.querySelector("#updateHolidaysBtn"),
   deleteProjectBtn: document.querySelector("#deleteProjectBtn"),
   statusLine: document.querySelector("#statusLine"),
   timelineBody: document.querySelector("#timelineBody"),
   rowMenu: document.querySelector("#rowMenu"),
+  newProjectModal: document.querySelector("#newProjectModal"),
+  newProjectModalClose: document.querySelector("#newProjectModalClose"),
+  newProjectOptions: document.querySelector("#newProjectOptions"),
+  newProjectCancelBtn: document.querySelector("#newProjectCancelBtn"),
 };
 
 let state = loadState();
@@ -77,20 +79,7 @@ function saveState() {
 }
 
 function bindEvents() {
-  els.newProjectBtn.addEventListener("click", () => {
-    const project = createProject({
-      name: `项目 ${state.projects.length + 1}`,
-      templateName: CSR_TEMPLATE.name,
-      startDate: todayIso(),
-      holidayYear: new Date().getFullYear(),
-      steps: cloneSteps(CSR_TEMPLATE.steps),
-    });
-    migrateProjectWritingStage(project);
-    state.projects.unshift(project);
-    state.activeProjectId = project.id;
-    saveAndRender("已新建项目");
-  });
-
+  els.newProjectBtn.addEventListener("click", openNewProjectModal);
   els.projectSearch.addEventListener("input", renderProjectList);
   els.projectName.addEventListener("input", () => {
     const project = activeProject();
@@ -99,23 +88,6 @@ function bindEvents() {
     project.updatedAt = new Date().toISOString();
     saveState();
     renderProjectList();
-  });
-  els.templateSelect.addEventListener("change", () => {
-    const project = activeProject();
-    const template = selectedTemplate();
-    if (!project || !template) return;
-    if (project.steps.length && !confirm("切换模板会替换当前 timeline。继续？")) {
-      renderTemplates();
-      return;
-    }
-    project.templateName = template.name;
-    project.steps = cloneSteps(template.steps);
-    project.startDate = project.startDate || todayIso();
-    project.holidayYear = Number(project.startDate.slice(0, 4)) || new Date().getFullYear();
-    delete project.writingStartStepId;
-    delete project.timelineMode;
-    migrateProjectWritingStage(project);
-    saveAndRender("已套用模板");
   });
 
   els.saveProjectBtn.addEventListener("click", () => {
@@ -135,30 +107,7 @@ function bindEvents() {
     setStatus("已导出 Excel");
   });
 
-  els.exportLibraryBtn.addEventListener("click", () => {
-    download("medical-writing-timeline-library.json", JSON.stringify(state, null, 2), "application/json;charset=utf-8");
-    setStatus("已导出项目库");
-  });
-
-  els.importLibraryInput.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    const imported = JSON.parse(text);
-    if (!Array.isArray(imported.projects) || !Array.isArray(imported.templates)) {
-      alert("项目库文件格式不正确");
-      return;
-    }
-    state = {
-      ...defaultState(),
-      ...imported,
-      holidays: { ...structuredClone(BUILT_IN_HOLIDAYS), ...(imported.holidays || {}) },
-    };
-    migrateWritingStages();
-    state.activeProjectId = state.activeProjectId || state.projects[0]?.id;
-    els.importLibraryInput.value = "";
-    saveAndRender("已导入项目库");
-  });
+  els.saveAsProjectBtn.addEventListener("click", saveAsNewProject);
 
   els.updateHolidaysBtn.addEventListener("click", updateHolidays);
   els.deleteProjectBtn.addEventListener("click", () => {
@@ -166,13 +115,16 @@ function bindEvents() {
     if (!project) return;
     if (!confirm(`删除项目「${project.name}」？`)) return;
     state.projects = state.projects.filter((item) => item.id !== project.id);
-    if (!state.projects.length) state.projects.push(createProject({
-      name: "新项目 Timeline",
-      templateName: CSR_TEMPLATE.name,
-      startDate: todayIso(),
-      holidayYear: new Date().getFullYear(),
-      steps: cloneSteps(CSR_TEMPLATE.steps),
-    }));
+    if (!state.projects.length) {
+      const fallback = createProject({
+        name: "新项目 Timeline",
+        templateName: CSR_TEMPLATE.name,
+        startDate: todayIso(),
+        holidayYear: new Date().getFullYear(),
+        steps: cloneSteps(CSR_TEMPLATE.steps),
+      });
+      state.projects.push(fallback);
+    }
     state.projects.forEach(migrateProjectWritingStage);
     state.activeProjectId = state.projects[0].id;
     saveAndRender("已删除项目");
@@ -180,15 +132,18 @@ function bindEvents() {
   els.rowMenu.addEventListener("click", handleMenuAction);
   document.addEventListener("click", hideRowMenu);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") hideRowMenu();
+    if (event.key === "Escape") {
+      hideRowMenu();
+      if (!els.newProjectModal.hidden) closeNewProjectModal();
+    }
   });
   bindColumnResizers();
+  bindNewProjectModalEvents();
 }
 
 function render() {
   renderProjectList();
   renderProjectForm();
-  renderTemplates();
   renderTimeline();
 }
 
@@ -200,7 +155,7 @@ function renderProjectList() {
     .forEach((project) => {
       const button = document.createElement("button");
       button.className = `project-item${project.id === state.activeProjectId ? " active" : ""}`;
-      button.innerHTML = `<strong>${escapeHtml(project.name)}</strong><span>${escapeHtml(project.templateName || "空白")} · ${formatDisplayDate(project.startDate)}</span>`;
+      button.innerHTML = `<strong>${escapeHtml(project.name)}</strong><span>${formatDisplayDate(project.startDate)}</span>`;
       button.addEventListener("click", () => {
         state.activeProjectId = project.id;
         saveAndRender();
@@ -213,15 +168,6 @@ function renderProjectForm() {
   const project = activeProject();
   if (!project) return;
   els.projectName.value = project.name;
-}
-
-function renderTemplates() {
-  const project = activeProject();
-  els.templateSelect.innerHTML = state.templates
-    .map((template) => `<option value="${template.id}">${escapeHtml(template.name)}</option>`)
-    .join("");
-  const matching = state.templates.find((template) => template.name === project?.templateName);
-  els.templateSelect.value = matching?.id || state.templates[0]?.id || "";
 }
 
 function renderTimeline() {
@@ -372,6 +318,92 @@ async function updateHolidays() {
   }
 }
 
+function bindNewProjectModalEvents() {
+  els.newProjectModalClose.addEventListener("click", closeNewProjectModal);
+  els.newProjectCancelBtn.addEventListener("click", closeNewProjectModal);
+  els.newProjectModal.addEventListener("click", (event) => {
+    if (event.target === els.newProjectModal) closeNewProjectModal();
+  });
+}
+
+function openNewProjectModal() {
+  els.newProjectOptions.innerHTML = "";
+
+  const csrOption = document.createElement("button");
+  csrOption.className = "new-project-option";
+  csrOption.innerHTML = `<strong>空白 CSR 模板</strong><span>使用内置 CSR Timeline 模板新建项目</span>`;
+  csrOption.addEventListener("click", () => {
+    createNewProjectFromTemplate();
+    closeNewProjectModal();
+  });
+  els.newProjectOptions.append(csrOption);
+
+  if (state.projects.length) {
+    const divider = document.createElement("div");
+    divider.className = "new-project-divider";
+    divider.textContent = "或选择既往项目作为基础";
+    els.newProjectOptions.append(divider);
+
+    state.projects.forEach((project) => {
+      const option = document.createElement("button");
+      option.className = "new-project-option";
+      option.innerHTML = `<strong>${escapeHtml(project.name)}</strong><span>${formatDisplayDate(project.startDate)} · ${project.steps.length} 步</span>`;
+      option.addEventListener("click", () => {
+        createNewProjectFromProject(project);
+        closeNewProjectModal();
+      });
+      els.newProjectOptions.append(option);
+    });
+  }
+
+  els.newProjectModal.hidden = false;
+}
+
+function closeNewProjectModal() {
+  els.newProjectModal.hidden = true;
+}
+
+function createNewProjectFromTemplate() {
+  const project = createProject({
+    name: `项目 ${state.projects.length + 1}`,
+    templateName: CSR_TEMPLATE.name,
+    startDate: todayIso(),
+    holidayYear: new Date().getFullYear(),
+    steps: cloneSteps(CSR_TEMPLATE.steps),
+  });
+  migrateProjectWritingStage(project);
+  state.projects.unshift(project);
+  state.activeProjectId = project.id;
+  saveAndRender("已新建项目（CSR 模板）");
+}
+
+function createNewProjectFromProject(sourceProject) {
+  const project = createProject({
+    name: `${sourceProject.name} - 副本`,
+    templateName: sourceProject.templateName || CSR_TEMPLATE.name,
+    startDate: sourceProject.startDate,
+    holidayYear: sourceProject.holidayYear,
+    steps: cloneSteps(sourceProject.steps),
+  });
+  if (sourceProject.writingStartStepId) {
+    const sourceIndex = sourceProject.steps.findIndex((s) => s.id === sourceProject.writingStartStepId);
+    if (sourceIndex >= 0 && sourceIndex < project.steps.length) {
+      project.writingStartStepId = project.steps[sourceIndex].id;
+    }
+  }
+  project.timelineMode = "writing-anchor-v1";
+  state.projects.unshift(project);
+  state.activeProjectId = project.id;
+  saveAndRender(`已从「${sourceProject.name}」新建项目`);
+}
+
+function saveAsNewProject() {
+  const source = activeProject();
+  if (!source) return;
+  createNewProjectFromProject(source);
+  setStatus("已另存为新项目");
+}
+
 function createProject({ name, templateName, startDate, holidayYear, steps }) {
   return {
     id: id(),
@@ -408,10 +440,6 @@ function cloneSteps(steps) {
 
 function activeProject() {
   return state.projects.find((project) => project.id === state.activeProjectId) || state.projects[0];
-}
-
-function selectedTemplate() {
-  return state.templates.find((template) => template.id === els.templateSelect.value);
 }
 
 function calculatedSteps(project) {

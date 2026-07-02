@@ -18,13 +18,6 @@
         </div>
         <input id="projectSearch" class="search" type="search" placeholder="搜索项目">
         <div id="projectList" class="project-list"></div>
-        <div class="sidebar-actions">
-          <button id="exportLibraryBtn">导出项目库</button>
-          <label class="file-button">
-            导入项目库
-            <input id="importLibraryInput" type="file" accept="application/json,.json">
-          </label>
-        </div>
       </aside>
 
       <section class="workspace">
@@ -33,15 +26,12 @@
             <label for="projectName">项目名称</label>
             <input id="projectName" type="text">
           </div>
-          <div class="field compact">
-            <label for="templateSelect">模板</label>
-            <select id="templateSelect"></select>
-          </div>
         </header>
 
         <div class="toolbar">
           <button id="saveProjectBtn">保存</button>
           <button id="exportExcelBtn">导出Excel</button>
+          <button id="saveAsProjectBtn">另存为新项目</button>
           <button id="updateHolidaysBtn">更新节假日</button>
           <button id="deleteProjectBtn" class="danger">删除项目</button>
           <span id="statusLine" class="status-line"></span>
@@ -87,6 +77,22 @@
       <button data-menu-action="delete" class="danger">删除本行</button>
     </div>
 
-    <script type="module" src="./app.js?v=20260702-auto-holidays"></script>
+    <div id="newProjectModal" class="modal" hidden>
+      <div class="modal-panel">
+        <header class="modal-header">
+          <h2>新建项目</h2>
+          <button id="newProjectModalClose" class="modal-close" aria-label="关闭">×</button>
+        </header>
+        <div class="modal-body">
+          <p class="modal-hint">选择一个基础模板，创建新项目：</p>
+          <div id="newProjectOptions" class="new-project-options"></div>
+        </div>
+        <footer class="modal-footer">
+          <button id="newProjectCancelBtn">取消</button>
+        </footer>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js?v=20260703-ui-revamp"></script>
   </body>
 </html>
